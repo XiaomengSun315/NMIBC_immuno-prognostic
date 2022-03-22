@@ -1,4 +1,6 @@
+# 2021.11.29
 # Modified from 《9_Cell-score_Survival_v2.R》
+
 rm(list=ls())
 ################################## BC progression ##################################
 library(dplyr)
@@ -11,9 +13,8 @@ library(survminer)
 library(eoffice)
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 dir.create(paste0(result_dir, "9_Cell_Survival/"))
 
 ################################### Function module ################################## 
@@ -23,7 +24,7 @@ survival_pack <- function(dataset_name, survival_type, survival_time){
 	
 	pheno_matrix <- pheno[pheno$Source_dataset==dataset_name,]
 
-	for(method in c("ssGSEA")){
+	for(method in c("ssGSEA", "Z-score")){
 		if(method == "ssGSEA" && file.exists(paste0(result_dir, "8_Cell_scores/8.3_ssGSEA_heatmap/", dataset_name, "_ssGSEA_score.xlsx"))){
 			method_name <- method
 			score_matrix <- read.xlsx(paste0(result_dir, "8_Cell_scores/8.3_ssGSEA_heatmap/", dataset_name, "_ssGSEA_score.xlsx"), rowNames=TRUE)
@@ -100,6 +101,10 @@ survival_plot <- function(dataset_name, method_name, score_matrix, pheno_matrix,
 		dev.off()
 
 		topptx(surv_plot, paste0(result_dir, "9_Cell_Survival/", survival_time, "_Figure_4B/", dataset_name, "_", method_name, "_", cell_type, "_surv_plot.pptx"))
+
+		# jpeg(paste0(result_dir, "9_Cell_Survival/", survival_time, "_Figure_4B/", dataset_name, "_", method_name, "_", cell_type, "_cum_plot.jpg"))
+		# print(cum_plot)
+		# dev.off()
 
 		output[current_line+i, "survival_type"] <- survival_type
 		output[current_line+i, "survival_time"] <- survival_time

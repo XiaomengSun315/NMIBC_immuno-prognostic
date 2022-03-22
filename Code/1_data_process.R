@@ -1,11 +1,10 @@
 rm(list=ls())
 ################################## NMIBC:  ##################################
-# load packages
+# load new packages
 library(openxlsx)
 
 # set path
-args <- commandArgs(T)
-result_dir <- paste0(args[1], "Results/")
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 
 
 ################################ Download public dataset ################################
@@ -92,6 +91,38 @@ download_ArrayExpress_data <- function(AE_ID, save_path){
 ################################## Data cleaning ##################################
 data_cleaning_array <- function(exp_data, dataset_name, bioc_package, mibc_col_name, mibc_value) {
 	# # 1) Expression gene annotation
+	# # 1.1) acquire gene symbol annotation from bioconductor (ex. GPL6102)
+	# # Method 1: use GEOmetadb
+	# # BiocManager::install("GEOmetadb")
+	# library(GEOmetadb)
+	# sqlfile <- getSQLiteFile()
+	# con <- dbConnect(SQLite(), sqlfile)
+	# GPL6102 <- dbGetQuery(con,"select gpl,title,bioc_package from gpl where gpl='GPL6102'")
+	# dim(GPL6102)
+	
+	# Method 2: directly install from bioconductor 
+	# # bioconductor package for chip information
+	# # a) GPL_ID to bioc_package: blog.csdn.net/weixin_40739969/article/details/103186027
+	# BiocManager::install("illuminaHumanv2.db") # GPL6102
+	# BiocManager::install("illuminaHumanv3.db") # GPL6947, GSE48075
+	# BiocManager::install("illuminaHumanv4.db") # GPL10558
+	# BiocManager::install("hu6800.db") # GPL80
+	# BiocManager::install("hgu133plus2.db") # A-AFFY-44
+	# BiocManager::install("hugene10sttranscriptcluster.db") # GSE83586,GSE128959
+	# BiocManager::install("hgu133a.db") # GSE3167
+
+	# # b) GPL_ID to bioc_package: https://rdrr.io/bioc/GEOmetadb/man/getBiocPlatformMap.html
+	# library(GEOmetadb)
+	# if( !file.exists("GEOmetadb.sqlite") ) {
+	# 	demo_sqlfile <- getSQLiteFile(destdir = getwd(), destfile = "GEOmetadb.sqlite.gz", type = "demo")
+	# } else {
+	# 	demo_sqlfile <- "GEOmetadb.sqlite"
+	# }
+	# con <- dbConnect(SQLite(), demo_sqlfile)
+	# getBiocPlatformMap(con, bioc=c('GPL4060', 'GPL20301', 'GPL17586'))
+	# dbDisconnect(con)
+
+
 	# annotation with BiocManager database
 	library(illuminaHumanv2.db)
 	library(illuminaHumanv3.db)
@@ -103,7 +134,21 @@ data_cleaning_array <- function(exp_data, dataset_name, bioc_package, mibc_col_n
 	library(annotate)
 	probe2gene <- toTable(eval(parse(text=paste0(bioc_package, "SYMBOL"))))
 
+	# # Method 3: use AnnoProbe from jmzeng1314
+	# # library(devtools)
+	# # install_github("jmzeng1314/AnnoProbe")
+	# # setwd("D:/xmsun/Resource/GitHub_package/")
+	# # devtools::install_local('AnnoProbe-master.zip')
+	# library(AnnoProbe)
+	# probe2gene_GPL6102_pipe <- idmap("GPL6102", type="pipe")
+	# probe2gene_GPL6102_soft <- idmap("GPL6102", type="soft")
+	# probe2gene_GPL6102_bioc <- idmap("GPL6102", type="bioc")
+
 	# 1.2) annotation, keep probes with gene_symbol only
+	# # To EntrezID
+	# all_probe=eval(parse(text = paste0('mappedkeys(','illuminaHumanv2','ENTREZID)')))
+	# EGID <- as.numeric(lookUp(all_probe, "illuminaHumanv2.db", "ENTREZID"))
+	# To symbol
 	exp_valid <- exp_data[rownames(exp_data) %in% probe2gene$probe_id,]
 	probe2gene <- probe2gene[match(rownames(exp_valid), probe2gene$probe_id),]
 	
@@ -119,7 +164,7 @@ data_cleaning_array <- function(exp_data, dataset_name, bioc_package, mibc_col_n
 	exp_clean <- cbind(rownames(exp_clean), exp_clean)
 	names(exp_clean)[1] <- "Symbol"
 
-	# log2: only GSE3167, GSE32894, GSE88, GSE89
+	# extra log2: suitable for GSE3167, GSE32894, GSE88, GSE89
 	if(dataset_name %in% c("GSE32894", "GSE3167", "GSE88", "GSE89")){
 		exp_clean[,2:ncol(exp_clean)] <- log2(1 + exp_clean[,2:ncol(exp_clean)])
 	}

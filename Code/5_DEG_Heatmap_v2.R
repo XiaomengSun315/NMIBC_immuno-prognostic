@@ -1,5 +1,11 @@
+# modified according to reviewer1's suggestion: use wFisher as combined p value method
+
 rm(list=ls())
 ################################## BC progression ##################################
+# install.packages("rJava")
+# library(devtools)
+# install_github("FedericoComoglio/rSymPy")
+# install_github('unistbig/metapro', INSTALL_opts=c("--no-multiarch"))
 library(openxlsx)
 library(limma)
 library(ggplot2)
@@ -7,11 +13,14 @@ library(ComplexHeatmap)
 library(eoffice)
 library(clusterProfiler)
 library(dplyr)
+library(rJava)
+library(metapro)
+library(rSymPy)
+sympyStart()
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 dir.create(paste0(result_dir, "5_DEG_Heatmap_KEGG/"))
 
 ################################### subgroup by cells ###################################
@@ -98,18 +107,19 @@ DEG_func <- function(cell_type, dataset_name, cell_subgroup){
 		write.xlsx(DEG_all, paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type, "/", dataset_name, "_", method_name, "_DEG_all.xlsx"), rowNames=TRUE, overwrite=TRUE)
 
 		DEG <- DEG_all[DEG_all$adj.P.Val < 0.05 & (DEG_all$logFC > 1 | DEG_all$logFC < -1),]
-		write.xlsx(DEG, paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type, "/", dataset_name, "_", method_name, "_DEG.xlsx"), rowNames=TRUE, overwrite=TRUE)
+		write.xlsx(DEG_all, paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type, "/", dataset_name, "_", method_name, "_DEG_all.xlsx"), rowNames=TRUE, overwrite=TRUE)
+		write.xlsx(DEG, paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type, "/", dataset_name, "_", method_name, "_DEG_filtered.xlsx"), rowNames=TRUE, overwrite=TRUE)
 
-		# write DEG to DEGs
+		# write DEG_all to DEGs
 		current_line_DEGs <- nrow(DEGs) + 1
-		if(nrow(DEG) > 0){
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "cell_type"] <<- cell_type
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "dataset_name"] <<- dataset_name
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "method_name"] <<- method_name
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "gene_name"] <<- rownames(DEG)
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "logFC"] <<- DEG$logFC
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "Pvalue"] <<- DEG$P.Value
-			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG)-1), "Padjust"] <<- DEG$adj.P.Val
+		if(nrow(DEG_all) > 0){
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "cell_type"] <<- cell_type
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "dataset_name"] <<- dataset_name
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "method_name"] <<- method_name
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "gene_name"] <<- rownames(DEG_all)
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "logFC"] <<- DEG_all$logFC
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "Pvalue"] <<- DEG_all$P.Value
+			DEGs[current_line_DEGs:(current_line_DEGs+nrow(DEG_all)-1), "Padjust"] <<- DEG_all$adj.P.Val
 		}else{
 			DEGs[current_line_DEGs, "cell_type"] <<- cell_type
 			DEGs[current_line_DEGs, "dataset_name"] <<- dataset_name
@@ -135,6 +145,10 @@ DEG_func <- function(cell_type, dataset_name, cell_subgroup){
 		jpeg(paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type, "/", dataset_name, "_", method_name, "_heatmap.jpg"))
 		print(ht)
 		dev.off()
+
+		# pptx <- paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type, "/", dataset_name, "_", method_name, "_heatmap.pptx")
+		# heatmap <- draw(ht, padding=unit(c(50,10, 10, 20), "mm"))
+		# topptx(heatmap, pptx)
 	}
 }
 
@@ -148,6 +162,7 @@ cells$cell_alias <- c("T cell CD4+", "T cell CD8+", "Myeloid dendritic cell", "C
 # output file 1: subgroups
 cell_groups <- data.frame(matrix(nrow=0, ncol=11))
 names(cell_groups) <- c("cell_type", "dataset_name", "sample_name", "epic_origin", "epic_level", "quantiseq_origin", "quantiseq_level", "mcp_counter_origin", "mcp_counter_level", "timer_origin", "timer_level")
+# names(cell_groups) <- c("cell_type", "dataset_name", "method_name", "method_origin", "method_level")
 
 # output file 2: DEG records
 DEGs <- data.frame(matrix(nrow=0, ncol=7))
@@ -159,26 +174,37 @@ names(KEGGs) <- c("cell_type", "dataset_name", "method_name", "up_KEGG_order", "
 
 
 ######################################## main ########################################
+######################################## get DEG (limma)
 for(cell_type in cells$cell_name){
 
 	dir.create(paste0(result_dir, "5_DEG_Heatmap_KEGG/", cell_type))
 	sources <- strsplit(cells[cells$cell_name==cell_type, "sources"], ";")[[1]]
 	cell_alias <- cells[cells$cell_name==cell_type, "cell_alias"]
 	datasets <- list.dirs(paste0(result_dir, "2_immunedeconv"), full.names=FALSE)[-1]
+	# datasets <- datasets[-grep("GSE89", datasets)] # 其在计算DEG的logFC时容易过拟合。 # 后来GSE88、GSE89、PMID三个数据集直接删掉了。
 
 	for(dataset_name in datasets){
+
 		# DEG & Heatmap & KEGG enrichment
 		cell_subgroup <- groups(cell_type, cell_alias, dataset_name, sources)
 		DEG_func(cell_type, dataset_name, cell_subgroup)
 	}
 }
 
-write.xlsx(cell_groups, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1_cell_groups.xlsx"), rowNames=FALSE, overwrite=TRUE)
-write.xlsx(DEGs, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1_DEGs.xlsx"), rowNames=FALSE, overwrite=TRUE)
+DEGs_filtered <- DEGs[DEGs$Padjust < 0.05 & (DEGs$logFC > 1 | DEGs$logFC < -1),]
 
-#################### Select genes for each cell type
-DEG_summary <- data.frame(matrix(nrow=0, ncol=6))
-names(DEG_summary) <- c("Cell_type", "Gene_name", "Dataset_Count", "logFC", "Pvalue", "Padjust")
+write.xlsx(cell_groups, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.1_cell_groups.xlsx"), rowNames=FALSE, overwrite=TRUE)
+write.xlsx(DEGs, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.2_DEGs_all.xlsx"), rowNames=FALSE, overwrite=TRUE)
+write.xlsx(DEGs_filtered, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.3_DEGs_filtered.xlsx"), rowNames=FALSE, overwrite=TRUE)
+save(cell_groups, DEGs, DEGs_filtered, file=paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.4_DEG_process.Rdata"))
+
+######################################## Select genes for each cell type (mean, ordmeta, wFisher)
+# sample size in each dataset
+sample_size <- data.frame(dataset=datasets, sample_size=c(86,460,84,159,194,47,213,69,58))
+
+# output format
+DEG_summary <- data.frame(matrix(nrow=0, ncol=12))
+names(DEG_summary) <- c("Cell_type", "Gene_name", "Dataset_Count", "mean_logFC", "mean_Pvalue", "mean_Padjust", "ordmeta_combined_p", "ordmeta_optimal_rank", "ordmeta_minimum_marginal_p", "ordmeta_overall_eff_direction", "wFisher_combined_p", "wFisher_overall_eff_direction")
 
 cell_types <- unique(DEGs$cell_type)
 for(cell_type in cell_types){
@@ -187,14 +213,47 @@ for(cell_type in cell_types){
 	current_line_DEG_summary <- nrow(DEG_summary) + 1
 	DEG_summary[current_line_DEG_summary:(current_line_DEG_summary+length(genes)-1),"Cell_type"] <- cell_type
 	for(i in 1:length(genes)){
+		# remark
 		DEG_summary[current_line_DEG_summary+i-1,"Gene_name"] <- genes[i]
 		DEGs_gene <- na.omit(DEGs_cell[DEGs_cell$gene_name==genes[i],])
 		DEG_summary[current_line_DEG_summary+i-1,"Dataset_Count"] <- length(unique(DEGs_gene$dataset_name))
-		DEG_summary[current_line_DEG_summary+i-1,"logFC"] <- mean(DEGs_gene$logFC)
-		DEG_summary[current_line_DEG_summary+i-1,"Pvalue"] <- mean(DEGs_gene$Pvalue)
-		DEG_summary[current_line_DEG_summary+i-1,"Padjust"] <- mean(DEGs_gene$Padjust)
+
+		# mean
+		DEG_summary[current_line_DEG_summary+i-1,"mean_logFC"] <- mean(DEGs_gene$logFC)
+		DEG_summary[current_line_DEG_summary+i-1,"mean_Pvalue"] <- mean(DEGs_gene$Pvalue)
+		DEG_summary[current_line_DEG_summary+i-1,"mean_Padjust"] <- mean(DEGs_gene$Padjust)
+
+		# direction
+		DEGs_gene$eff_direction <- ""
+		DEGs_gene[DEGs_gene$logFC > 0,"eff_direction"] <- 1
+		DEGs_gene[DEGs_gene$logFC < 0,"eff_direction"] <- -1
+
+		# # ordmeta
+		# ordmeta_p <- ordmeta(p=DEGs_gene$Pvalue, is.onetail=FALSE, eff.sign=DEGs_gene$eff_direction)
+
+		# DEG_summary[current_line_DEG_summary+i-1,"ordmeta_combined_p"] <- ordmeta_p$p
+		# DEG_summary[current_line_DEG_summary+i-1,"ordmeta_optimal_rank"] <- ordmeta_p$optimal_rank
+		# DEG_summary[current_line_DEG_summary+i-1,"ordmeta_minimum_marginal_p"] <- ordmeta_p$MMP
+		# DEG_summary[current_line_DEG_summary+i-1,"ordmeta_overall_eff_direction"] <- ordmeta_p$overall.eff.direction
+
+		# wFisher
+		DEGs_gene_size <- merge(DEGs_gene, sample_size, by.x="dataset_name", by.y="dataset", sort=FALSE)
+
+		wfisher_p <- wFisher(p=DEGs_gene_size$Pvalue, weight=DEGs_gene_size$sample_size, is.onetail=FALSE, eff.sign=DEGs_gene_size$eff_direction)
+		DEG_summary[current_line_DEG_summary+i-1,"wFisher_combined_p"] <- wfisher_p$p
+		DEG_summary[current_line_DEG_summary+i-1,"wFisher_overall_eff_direction"] <- wfisher_p$overall.eff.direction
 	}
+
+	DEG_summary[current_line_DEG_summary:(current_line_DEG_summary+length(genes)-1),"wFisher_sig"] <- ""
+	sig_hit <- intersect(rownames(DEG_summary[DEG_summary[current_line_DEG_summary:(current_line_DEG_summary+length(genes)-1),"wFisher_combined_p"] < 0.05/length(genes),]), current_line_DEG_summary:(current_line_DEG_summary+length(genes)-1))
+	not_sig <- setdiff(current_line_DEG_summary:(current_line_DEG_summary+length(genes)-1), sig_hit)
+	DEG_summary[sig_hit,"wFisher_sig"] <- "TRUE"
+	DEG_summary[not_sig,"wFisher_sig"] <- "FALSE"
 }
 
-DEG_summary <- arrange(DEG_summary, Cell_type, -Dataset_Count, -logFC, Padjust)
-write.xlsx(DEG_summary, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1_DEG_summary.xlsx"), rowNames=FALSE, overwrite=TRUE)
+# DEG_summary <- arrange(DEG_summary, Cell_type, -Dataset_Count, -mean_logFC, mean_Padjust)
+write.xlsx(DEG_summary, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.5_DEG_summary.xlsx"), rowNames=FALSE, overwrite=TRUE)
+
+DEG_summary_filtered <- DEG_summary[DEG_summary$Dataset_Count >= 3 & DEG_summary$wFisher_sig == "TRUE",]
+write.xlsx(DEG_summary_filtered, paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.6_DEG_summary_filtered.xlsx"), rowNames=FALSE, overwrite=TRUE)
+save(DEG_summary, DEG_summary_filtered, file=paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.7_DEG_summary_process.Rdata"))

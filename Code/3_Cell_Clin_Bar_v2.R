@@ -10,9 +10,9 @@ library(ggplot2)
 library(ggpubr)
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+
 
 
 ################################### Function module ################################## 

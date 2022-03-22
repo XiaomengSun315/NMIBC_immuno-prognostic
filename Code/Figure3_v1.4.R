@@ -1,3 +1,5 @@
+# modified according to reviewer1's suggestion: update with "6_Gene_Survival_v2.R"
+
 rm(list=ls())
 ################################## BC progression ##################################
 # load package
@@ -22,16 +24,17 @@ library(dplyr)
 library(tidytree)
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+# dir.create(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2/"), recursive=TRUE)
+dir.create(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/"), recursive=TRUE)
+# dir.create(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.4_2.5/"), recursive=TRUE)
 
-
-################################### Function module ##################################
+###################################  main ##################################
 pheno <- read.xlsx(paste0(data_dir, "combined/Clinicopathologic_v2.xlsx"), na.strings=c("","NA","Nan","#N/A"))
 gene_survival <- read.xlsx(paste0(result_dir, "6_Gene_Survival/6.1_Gene_Survival.xlsx"))
-gene_survival_sig <- gene_survival[gene_survival$KM_Pvalue < 0.1 & gene_survival$Forest_Pvalue < 0.1 & (gene_survival$HR_High < 0.5 | gene_survival$HR_High > 2),]
-write.xlsx(gene_survival_sig, paste0(result_dir, "6_Gene_Survival/6.2_Heatmap_data.xlsx"), overwrite=TRUE)
+gene_survival_sig <- gene_survival[gene_survival$KM_Pvalue < 0.05 & gene_survival$Forest_Pvalue < 0.05 & (gene_survival$HR_High < 0.5 | gene_survival$HR_High > 2.5) & gene_survival$HR_High != "not-converge",]
+write.xlsx(gene_survival_sig, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_Heatmap_data.xlsx"), overwrite=TRUE)
 
 for(survival_time in c("Progression_free_survival", "OS", "all")){
 
@@ -64,6 +67,7 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 		################ 1) Heatmap
 		column_ha = HeatmapAnnotation(Status=survival_matrix[,survival_type], Survival=anno_barplot(as.numeric(survival_matrix[,survival_time]), gp=gpar(fill="#6baed6", border=NA, lty="blank")), col=list(Status = c("TRUE"="#d7191c", "FALSE"="#6baed6")))
 		row_ha = rowAnnotation(Haze_ratio=anno_barplot(as.numeric(unique(heatmap_data$HR_High)), baseline=1, gp=gpar(fill="#6baed6", border=NA, lty="blank")))
+		
 		if(survival_time=="Progression_free_survival"){
 			group <- as.factor(t(survival_matrix$Progression_beyond_T2_Progression))
 			names(group) <- survival_matrix$Sample_name
@@ -71,7 +75,7 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 				col=colorRamp2(c(10,7,4,2,0), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
 				width=unit(9,"cm"), 
 				height=unit(15,"cm"), 
-				row_names_gp=gpar(fontsize=6), 
+				row_names_gp=gpar(fontsize=4), 
 				top_annotation=column_ha, 
 				right_annotation=row_ha, 
 				show_column_dend=FALSE, 
@@ -84,14 +88,14 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 				column_split = group, 
 				column_title = NULL)
 			
-			# for pptx bar plot and text annotation (Figures version 1.3)
+			# for pptx bar plot and text annotation (Figure3A version 1.4)
 			column_ha_text = HeatmapAnnotation(Status=survival_matrix[c(1,445),survival_type], Survival=anno_barplot(as.numeric(survival_matrix[c(1,445),survival_time]), gp=gpar(fill="#6baed6", border=NA, lty="blank")), col=list(Status = c("TRUE"="#d7191c", "FALSE"="#6baed6")))
 			bar_text <- Heatmap(exp_matrix[,c(1,445)], 
 				col=colorRamp2(c(10,7,4,2,0), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
 				width=unit(9,"cm"), 
 				height=unit(14,"cm"), 
-				row_names_gp=gpar(fontsize=6), 
-				top_annotation=column_ha_text, 
+				row_names_gp=gpar(fontsize=4), 
+				# top_annotation=column_ha_text, 
 				right_annotation=row_ha, 
 				show_column_dend=FALSE, 
 				show_column_names=FALSE, 
@@ -100,11 +104,11 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 				row_order = row_order(heatmap), 
 				cluster_columns = FALSE)
 
-			topptx(bar_text, paste0(result_dir, "6_Gene_Survival/6.2_", survival_time, "_DEG_heatmap_bar_text.pptx"))
+			topptx(bar_text, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_", survival_time, "_DEG_heatmap_bar_text.pptx"))
 
-			pdf(paste0(result_dir, "6_Gene_Survival/6.2_", survival_time, "_DEG_heatmap_bar_text.pdf"))
+			pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_", survival_time, "_DEG_heatmap_bar_text.pdf"))
 			print(bar_text)
-			dev.off()			
+			dev.off()
 		}else{
 			group <- as.factor(t(survival_matrix$Vital_status))
 			names(group) <- survival_matrix$Sample_name
@@ -126,11 +130,13 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 				column_title = NULL)
 		}
 	
-		pdf(paste0(result_dir, "6_Gene_Survival/6.2_", survival_time, "_DEG_heatmap.pdf"))
+		pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_", survival_time, "_DEG_heatmap.pdf"))
 		print(heatmap)
 		dev.off()
 
-		# ggsave(heatmap, paste0(result_dir, "6_Gene_Survival/6.2_", survival_time, "_DEG_heatmap.svg"))
+		topptx(heatmap, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_", survival_time, "_DEG_heatmap.pptx"))
+
+		# ggsave(heatmap, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_", survival_time, "_DEG_heatmap.svg"))
 	
 	}else{
 		heatmap_data <- gene_survival_sig[gene_survival_sig$survival_time!="Disease_specific_survival",]
@@ -156,37 +162,34 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 			kegg_dot <- dotplot(plot_data)
 			kegg_bar <- barplot(plot_data)
 
-			ggsave(kegg_dot, file=paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_dot.svg"))
-			ggsave(kegg_bar, file=paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_bar.svg"))
+			topptx(kegg_dot, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_dot.pptx"))
+			topptx(kegg_bar, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_bar.pptx"))
 
-			topptx(kegg_dot, paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_dot.pptx"))
-			topptx(kegg_bar, paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_bar.pptx"))
-
-			jpeg(paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_dot.jpg"))
+			jpeg(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_dot.jpg"))
 			print(kegg_dot)
 			dev.off()
 
-			jpeg(paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_bar.jpg"))
+			jpeg(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_bar.jpg"))
 			print(kegg_bar)
 			dev.off()
 
-			pdf(paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_dot.pdf"))
+			pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_dot.pdf"))
 			print(kegg_dot)
 			dev.off()
 
-			pdf(paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_bar.pdf"))
+			pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_bar.pdf"))
 			print(kegg_bar)
 			dev.off()
 
-			# delete disease related pathways of top_genes_kegg
+			# delete disease related pathways of top_genes_kegg (Figure3C version v1.4)
 			if(kegg=="top_genes_kegg"){
-				kegg_dot_select <- dotplot(plot_data, showCategory = c("Focal adhesion", "Protein digestion and absorption", "PI3K-Akt signaling pathway", "ECM-receptor interaction", "Relaxin signaling pathway"))
+				kegg_dot_select <- dotplot(plot_data, showCategory = c("Focal adhesion", "Cytokine−cytokine receptor interaction", "PI3K-Akt signaling pathway", "Chemokine signaling pathway", "ECM-receptor interaction", "Protein digestion and absorption"))
 
-				pdf(paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_dot_select.pdf"))
+				pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_dot_select.pdf"))
 				print(kegg_dot_select + theme(plot.margin=unit(c(6,2,6,2), "cm")))
 				dev.off()
 
-				topptx(kegg_dot_select + theme(plot.margin=unit(c(5,2,5,2), "cm")), paste0(result_dir, "6_Gene_Survival/6.3_", survival_time, "_", kegg, "_dot_select.pptx"))
+				topptx(kegg_dot_select + theme(plot.margin=unit(c(5,2,5,2), "cm")), paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.3_", survival_time, "_", kegg, "_dot_select.pptx"))
 			}
 		}
 	}
@@ -208,34 +211,35 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 			go_dot <- dotplot(plot_data)
 			go_tree <- try(treeplot(pairwise_termsim(plot_data)), silent=TRUE)
 
-			topptx(go_dot, paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_dot.pptx"))
+			topptx(go_dot, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_dot.pptx"))
 
-			ggsave(go_dot, file=paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_dot.svg"))
-
-			jpeg(paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_dot.jpg"))
+			jpeg(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_dot.jpg"))
 			print(go_dot)
 			dev.off()
 
-			pdf(paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_dot.pdf"))
+			pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_dot.pdf"))
 			print(go_dot)
 			dev.off()
 
 			if(class(go_tree)!="try-error"){
-				ggsave(go_tree, file=paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_tree.svg"))
-
-				jpeg(paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_tree.jpg"))
+				jpeg(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_tree.jpg"))
 				print(go_tree)
 				dev.off()
 
-				pdf(paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_tree.pdf"))
+				pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_tree.pdf"))
 				print(go_tree)
 				dev.off()
 
-				# for compressed tree plots (Figure version 1.3)
-				if(go="top_genes_go_cc"){
-					topptx(scaleClade(go_tree, node=12, scale=0.5), paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_tree.pptx"))
-				}else if(go="top_genes_go_mf"){
-					topptx(scaleClade(go_tree, node=15, scale=0.5), paste0(result_dir, "6_Gene_Survival/6.4_", survival_time, "_", go, "_tree.pptx"))
+				# for compressed tree plots (Figure3D,3E,3F version 1.4)
+				# find node numbers using following code:
+				# go_tree_node <- try(treeplot(pairwise_termsim(plot_data)) + geom_text2(aes(subset=!isTip, label=node)), silent=TRUE)
+
+				if(go=="top_genes_go_cc"){
+					topptx(scaleClade(go_tree, node=8, scale=0.3), paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_tree.pptx"))
+				}else if(go=="top_genes_go_mf"){
+					topptx(scaleClade(go_tree, node=12, scale=0.4), paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_tree.pptx"))
+				}else{
+					topptx(go_tree, paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.4_", survival_time, "_", go, "_tree.pptx"))
 				}
 			}
 		}
@@ -250,15 +254,13 @@ for(survival_time in c("Progression_free_survival", "OS", "all")){
 		kegg <- enrichKEGG(gene=cell_genes, organism="hsa", pvalueCutoff=0.05)
 
 		if(as.numeric(nrow(summary(kegg))) > 1){
-			topptx(dotplot(kegg), paste0(result_dir, "6_Gene_Survival/6.5_", survival_time, "_", cell, "_kegg.pptx"))
+			topptx(dotplot(kegg), paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.5_", survival_time, "_", cell, "_kegg.pptx"))
 
-			ggsave(dotplot(kegg), file=paste0(result_dir, "6_Gene_Survival/6.5_", survival_time, "_", cell, "_kegg.svg"))
-
-			jpeg(paste0(result_dir, "6_Gene_Survival/6.5_", survival_time, "_", cell, "_kegg.jpg"))
+			jpeg(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.5_", survival_time, "_", cell, "_kegg.jpg"))
 			print(dotplot(kegg))
 			dev.off()
 
-			pdf(paste0(result_dir, "6_Gene_Survival/6.5_", survival_time, "_", cell, "_kegg.pdf"))
+			pdf(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.5_", survival_time, "_", cell, "_kegg.pdf"))
 			print(dotplot(kegg))
 			dev.off()
 		}

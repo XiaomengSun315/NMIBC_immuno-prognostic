@@ -1,3 +1,5 @@
+# modified according to reviewer1's suggestion: update with "5_DEG_Heatmap_v2.R"
+
 rm(list=ls())
 ################################## BC progression ##################################
 library(dplyr)
@@ -9,9 +11,8 @@ library(survival)
 library(survminer)
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 dir.create(paste0(result_dir, "6_Gene_Survival/"))
 
 ################################### Function module ################################## 
@@ -106,6 +107,9 @@ survival_plot <- function(dataset_name, exp_matrix, pheno_matrix, survival_type,
 			output[current_line+i, "HR_High"] <- "not-converge"
 			output[current_line+i, "Forest_Pvalue"] <- ""
 		}
+
+		######## 3) Pearson Correlation: Gene score & Survival time
+		# write.xlsx(merged_data, paste0(result_dir, "6_Gene_Survival/", cell_type, "/", dataset_name, "_", gene_name, "_merged_data.xlsx"), overwrite=TRUE)
 	}
 
 	write.xlsx(merged_data_all, paste0(result_dir, "6_Gene_Survival/", cell_type, "/", dataset_name, "_merged_data_all.xlsx"), overwrite=TRUE)
@@ -124,14 +128,15 @@ names(output) <- c("survival_type", "survival_time", "dataset_name", "cell_type"
 current_line <- nrow(output)
 
 # Candidate genes for each cell type
-DEG_summary <- read.xlsx(paste0(result_dir, "5_DEG_Heatmap_KEGG/DEG_summary.xlsx"))
-cell_types <- unique(DEG_summary$Cell_type)
+# load data: DEG_summary, DEG_summary_filtered
+load(paste0(result_dir, "5_DEG_Heatmap_KEGG/5.1.7_DEG_summary_process.Rdata"))
+cell_types <- unique(DEG_summary_filtered$Cell_type)
 cell_types <- cell_types[!grepl("^Tcells$", cell_types, perl=TRUE)]
 for(cell_type in cell_types){
 	if(cell_type == "NKcells"){
-		candidate_genes <- DEG_summary[DEG_summary$Dataset_Count >= 2 & DEG_summary$Cell_type == cell_type, "Gene_name"]
+		candidate_genes <- DEG_summary_filtered[(DEG_summary_filtered$mean_logFC > 0.3 | DEG_summary_filtered$mean_logFC < -0.3) & DEG_summary_filtered$Cell_type == cell_type, "Gene_name"]
 	}else{
-		candidate_genes <- DEG_summary[DEG_summary$Dataset_Count >= 3 & DEG_summary$Cell_type == cell_type, "Gene_name"]
+		candidate_genes <- DEG_summary_filtered[(DEG_summary_filtered$mean_logFC > 0.5 | DEG_summary_filtered$mean_logFC < -0.5) & DEG_summary_filtered$Cell_type == cell_type, "Gene_name"]
 	}
 
 	# survival plot (function format: dataset_name, survival_type, survival_time)

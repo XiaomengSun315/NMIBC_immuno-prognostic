@@ -1,12 +1,8 @@
 rm(list=ls())
 ################################## BC progression ##################################
-# load packages
 library(readxl)
 library(openxlsx)
-
-# set path
-args <- commandArgs(T)
-result_dir <- paste0(args[1], "Results/")
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 
 ################################### Function module ################################## 
 
@@ -34,6 +30,7 @@ run_xcell <- function(dataset_name, exp_data, save_path){
 
 ####### Function: immnedeconv
 # library(devtools)
+# setwd("F:/0_xmsun/Coo/mmli/20191030_Multi-omics/Data/")
 # devtools::install_local('GfellerLab-EPIC.zip')
 # devtools::install_local('immunedeconv-master.zip')
 immunedeconv_pack <- function(dataset_name, exp_data, save_path, timer_cancer, array) {
@@ -125,6 +122,26 @@ immunedeconv_pack <- function(dataset_name, exp_data, save_path, timer_cancer, a
 	library(dplyr)
 	quantiseq_comb <- deconvolute(immunedeconv::dataset_racle$expr_mat, "quantiseq") %>% map_result_to_celltypes(c("T cell CD4+"), "quantiseq")
 	knitr::kable(quantiseq_comb, digits=2)
+	
+	# ##### comparison bwteen methods, compare with FACS data (no FACS data as true fraction)
+	# cell_types <- c("B cell", "T cell CD4+", "T cell CD8+", "NK cell")
+	# tmp_quantiseq <- quantiseq %>% map_result_to_celltypes(cell_types, "quantiseq") %>%
+	# 	rownames_to_column("cell_type") %>%
+	# 	gather("sample", "estimate", -cell_type) %>%
+	# 	mutate(method="quanTIseq")
+	# tmp_mcp_counter <- mcp_counter %>% map_result_to_celltypes(cell_types, "mcp_counter") %>%
+	# 	rownames_to_column("cell_type") %>%
+	# 	gather("sample", "estimate", -cell_type) %>%
+	# 	mutate(method="MCP-counter")
+
+	# result <- bind_rows(tmp_quantiseq, tmp_mcp_counter) %>%
+	# 	inner_join(dataset_racle$ref)
+	# result %>%
+	# 	ggplot(aes(x=true_fraction, y=estimate)) +
+	# 	geom_point(aes(shape=cell_type, color=cell_type)) +
+	# 	facet_wrap(cell_type~method, scales="free_y", ncol = 2) +
+	# 	scale_color_brewer(palette = "Dark2") +
+	# 	theme_bw()
 
 	rm(quantiseq)
 	rm(mcp_counter)
@@ -151,6 +168,12 @@ estimate <- function(dataset_name, exp_data, save_path, platform){
 	rownames(estimate_score)=estimate_score[,1]
 	estimate_score=estimate_score[,3:ncol(estimate_score)]
 	write.xlsx(estimate_score, paste0(save_path, dataset_name, "_estimate_score.xlsx"), rowNames=TRUE, overwrite=TRUE)
+
+	# # Purity plot
+	# p <- plotPurity(estimate_score="", samples=, platform=platform)
+	# pdf()
+	# plot(p)
+	# dev.off()
 
 	rm(estimate_score)
 }

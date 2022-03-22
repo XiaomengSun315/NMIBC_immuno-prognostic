@@ -1,3 +1,7 @@
+# 2022.02.27
+# modified according to reviewer1's suggestion: update with "9_Cell-score_Survival_v3.R" & "10_Models_v4.2_cell_penalize_score_v2.R" (way of model records changed)
+
+# 2021.11.29
 # Figure 5: v4.2, seed 4921
 
 rm(list=ls())
@@ -25,9 +29,8 @@ library(plyr)
 library(ggsci)
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 
 dir.create(paste0(result_dir, "10_Models_plot/"))
 
@@ -126,7 +129,7 @@ for(version in c("v4.2")){
 
 	version_models <- candidate_models[candidate_models$version==version,]
 	
-	for(random_seed in c("4921")){
+	for(random_seed in version_models$random_seed){
 
 		current_info <- version_models[version_models$random_seed==random_seed,]
 		survival_type <- current_info[,"survival_type"]
@@ -140,7 +143,8 @@ for(version in c("v4.2")){
 		pheno[,eval(survival_type)] <- factor(pheno[,eval(survival_type)])
 		levels <- levels(pheno[,eval(survival_type)])
 		method_name <- version_models[version_models$random_seed==random_seed,"method_name"]
-		load(file=paste0(result_dir, "10_Models_", version, "/10.2_", survival_type, "_", method_name, "_random/seed_", random_seed, "/1_model.Rdata"))
+		# load models: model_bino_elnet, model_bino_lasso, model_bino_ridge, model_cox_elnet, model_cox_lasso, model_cox_ridge
+		load(file=paste0(result_dir, "10_Models_", version, "/10.2_", survival_type, "_", method_name, "_random/seed_", random_seed, "/1_models.Rdata"))
 
 		################################# 1) prepare data
 		# score matrix of cells (only ssGSEA methods)
@@ -151,45 +155,8 @@ for(version in c("v4.2")){
 		}
 
 		# predicted outcome by model
-		score_matrix[,(score_col+1):(score_col+length(levels))] <- predict(model, newdata=score_matrix, type="prob", se=TRUE)
-		names(score_matrix)[(score_col+1):(score_col+length(levels))] <- paste0(levels, "_pred_MN")
-		score_matrix$pred <- predict(model, newdata=score_matrix)
-
-		# numeric predictions by model
-		if(version %in% c("v4.2", "v4.3")){
-			
-			score_matrix$pred_num <- ""
-			intercept <- as.numeric(current_info[,"intercept"])
-			markers <- gsub("`", "", strsplit(current_info[,"markers"], split="|", fixed=TRUE)[[1]])
-			coefficients <- as.numeric(strsplit(current_info[,"coefficients"], split="|", fixed=TRUE)[[1]])
-
-			for(row in 1:nrow(score_matrix)){
-				markers_score <- as.numeric(score_matrix[row, match(markers, names(score_matrix))])
-				sum <- intercept
-				for(marker_count in 1:length(markers)){
-					sum <- sum + coefficients[marker_count] * markers_score[marker_count]
-				}
-				score_matrix[row, "pred_num"] <- sum
-			}
-			score_matrix$pred_num <- as.numeric(score_matrix$pred_num)
-		}else{
-			coefficients <- data.frame(coef(model), check.names=FALSE)
-			names(coefficients) <- gsub("`|\\(|\\)", "", names(coefficients))
-			markers <- names(coefficients)[-1]
-
-			for(row in 1:nrow(score_matrix)){
-				markers_score <-  as.numeric(score_matrix[row, match(markers, names(score_matrix))])
-				for(formula_count in 1:nrow(coefficients)){
-					formula_name <- rownames(coefficients)[formula_count]
-					sum <- coefficients[formula_count,"Intercept"]
-					for(marker_count in 1:length(markers)){
-						marker_name <- markers[marker_count]
-						sum <- sum + coefficients[formula_count, names(coefficients)==marker_name] * markers_score[marker_count]
-					}
-					score_matrix[row, paste0("pred_num_", formula_name)] <- sum
-				}
-			}
-		}
+		score_matrix[,(score_col+1)] <- predict(model_bino_elnet, newx = as.matrix(score_matrix), s=cvfit_bino_elnet$lambda.min, type="response")
+		names(score_matrix)[score_col+1] <- "pred_num"
 
 		# combine data
 		rownames(pheno) <- pheno$Sample_name
@@ -202,78 +169,82 @@ for(version in c("v4.2")){
 		if(version %in% c("v4.2", "v4.3")){
 			roc_data <- roc(merged_data[,eval(survival_type)], merged_data$pred_num)
 			roc_cutoff <- coords(roc_data, "best")$threshold
-			merged_data$roc_cutoff <- roc_cutoff
-			merged_data$pred_cutoff <- ""
-			merged_data[merged_data$pred_num < roc_cutoff, "pred_cutoff"] <- "FALSE"
-			merged_data[merged_data$pred_num > roc_cutoff, "pred_cutoff"] <- "TRUE"
+			if(length(roc_cutoff)==1){
+				merged_data$roc_cutoff <- roc_cutoff
+				merged_data$pred_cutoff <- ""
+				merged_data[merged_data$pred_num < roc_cutoff, "pred_cutoff"] <- "FALSE"
+				merged_data[merged_data$pred_num > roc_cutoff, "pred_cutoff"] <- "TRUE"
+			}
 		}
 
 		write.xlsx(merged_data, paste0(result_dir, "10_Models_plot/", version, "_Figure5/", survival_type, "/seed_", random_seed, "/merged_data.xlsx"), overwrite=TRUE)
 
 
 		################################# 3) box plot of predicted scores
-		if(version %in% c("v4.2", "v4.3")){
+		if(version %in% c("v4.2", "v4.3") & length(roc_cutoff)==1){
 			box_plot(current_info, merged_data, path, survival_type, method_name, random_seed)
 		}
 
 		################################# 4) survival plot
 		# format: path, current_info, merged_data, survival_plot_type, survival_plot_time
 		survival_combos <- data.frame(survival_plot_type=c("Progression_beyond_T2_Progression", "Cancer_specific_satus_DOD_event", "Vital_status"), survival_plot_time=c("Progression_free_survival","Disease_specific_survival","OS"))
-		for(survival_plot_type in survival_combos$survival_plot_type){
-			
-			survival_plot_time <- survival_combos[survival_combos$survival_plot_type==survival_plot_type,"survival_plot_time"]
-			
-			# plot data
-			merged_data$survival_plot_type <- as.numeric(merged_data[,eval(survival_plot_type)])
-			merged_data$survival_plot_time <- as.numeric(merged_data[,eval(survival_plot_time)])
+		if(length(roc_cutoff)==1){
+			for(survival_plot_type in survival_combos$survival_plot_type){
+				
+				survival_plot_time <- survival_combos[survival_combos$survival_plot_type==survival_plot_type,"survival_plot_time"]
+				
+				# plot data
+				merged_data$survival_plot_type <- as.numeric(merged_data[,eval(survival_plot_type)])
+				merged_data$survival_plot_time <- as.numeric(merged_data[,eval(survival_plot_time)])
+		
+				# KM curve plot
+				if(version=="v4.4"){
+					fit_survival <- survfit(Surv(survival_plot_time, survival_plot_type) ~ pred, data=merged_data)
+				}else{
+					fit_survival <- survfit(Surv(survival_plot_time, survival_plot_type) ~ pred_cutoff, data=merged_data)
+				}
+				
 	
-			# KM curve plot
-			if(version=="v4.4"){
-				fit_survival <- survfit(Surv(survival_plot_time, survival_plot_type) ~ pred, data=merged_data)
-			}else{
-				fit_survival <- survfit(Surv(survival_plot_time, survival_plot_type) ~ pred_cutoff, data=merged_data)
+				if(survival_plot_time=="Progression_free_survival"){
+					survival_plot <- ggsurvplot(fit_survival, 
+						pval=TRUE, 
+						conf.int=FALSE,
+						ggtheme = theme_bw(), # 更改ggplot2的主题
+						palette="aaas",
+						ylim=c(0.5,1),
+						pval.coord=c(0, 0.53),
+						title=survival_plot_time)$plot +
+						theme(plot.title=element_text(hjust=0.5))
+				}else if(survival_plot_time=="Disease_specific_survival"){
+					survival_plot <- ggsurvplot(fit_survival, 
+						pval=TRUE, 
+						conf.int=FALSE,
+						ggtheme = theme_bw(), # 更改ggplot2的主题
+						palette="aaas",
+						ylim=c(0.7,1),
+						pval.coord=c(0, 0.73),
+						title=survival_plot_time)$plot +
+						theme(plot.title=element_text(hjust=0.5))
+				}else{
+					survival_plot <- ggsurvplot(fit_survival, 
+						pval=TRUE, 
+						conf.int=FALSE,
+						ggtheme = theme_bw(), # 更改ggplot2的主题
+						palette="aaas",
+						title=survival_plot_time)$plot +
+						theme(plot.title=element_text(hjust=0.5))
+				}
+	
+				pdf(paste0(path, survival_plot_type, "_", method_name, "_KMcurve.pdf"), onefile=FALSE)
+				print(survival_plot)
+				dev.off()
+	
+				jpeg(paste0(path, survival_plot_type, "_", method_name, "_KMcurve.jpg"))
+				print(survival_plot)
+				dev.off()
+	
+				topptx(survival_plot, paste0(path, survival_plot_type, "_", method_name, "_KMcurve.pptx"))
 			}
-			
-
-			if(survival_plot_time=="Progression_free_survival"){
-				survival_plot <- ggsurvplot(fit_survival, 
-					pval=TRUE, 
-					conf.int=FALSE,
-					ggtheme = theme_bw(),
-					palette="aaas",
-					ylim=c(0.5,1),
-					pval.coord=c(0, 0.53),
-					title=survival_plot_time)$plot +
-					theme(plot.title=element_text(hjust=0.5))
-			}else if(survival_plot_time=="Disease_specific_survival"){
-				survival_plot <- ggsurvplot(fit_survival, 
-					pval=TRUE, 
-					conf.int=FALSE,
-					ggtheme = theme_bw(),
-					palette="aaas",
-					ylim=c(0.7,1),
-					pval.coord=c(0, 0.73),
-					title=survival_plot_time)$plot +
-					theme(plot.title=element_text(hjust=0.5))
-			}else{
-				survival_plot <- ggsurvplot(fit_survival, 
-					pval=TRUE, 
-					conf.int=FALSE,
-					ggtheme = theme_bw(),
-					palette="aaas",
-					title=survival_plot_time)$plot +
-					theme(plot.title=element_text(hjust=0.5))
-			}
-
-			pdf(paste0(path, survival_plot_type, "_", method_name, "_KMcurve.pdf"), onefile=FALSE)
-			print(survival_plot)
-			dev.off()
-
-			jpeg(paste0(path, survival_plot_type, "_", method_name, "_KMcurve.jpg"))
-			print(survival_plot)
-			dev.off()
-
-			topptx(survival_plot, paste0(path, survival_plot_type, "_", method_name, "_KMcurve.pptx"))
 		}
 	}
 }

@@ -1,3 +1,6 @@
+# 2022.02.27
+# modified according to reviewer1's suggestion: update with "6_Gene_Survival_v2.R" and "8_Cell_scores_v3.R"
+
 rm(list=ls())
 ################################## BC progression ##################################
 # load package
@@ -19,9 +22,8 @@ library(ReactomePA)
 library(RColorBrewer)
 
 # set working directory
-args <- commandArgs(T)
-data_dir <- paste0(args[1], "Data/")
-result_dir <- paste0(args[1], "Results/")
+data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
+result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
 
 
 ################################### Function module ##################################
@@ -63,7 +65,7 @@ for(method in c("ssgsea", "cell_z")){
 	plot_data <- assign(matrix_name, get(matrix_name))
 
 	# annotation for immune cells
-	gene_survival_sig <- read.xlsx(paste0(result_dir, "6_Gene_Survival/6.2_Heatmap_data.xlsx"))
+	gene_survival_sig <- read.xlsx(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/6.2_Heatmap_data.xlsx"))
 	cell_gene_stat <- table(gene_survival_sig$cell_type)
 	row_ha = rowAnnotation(Gene_count=anno_barplot(as.numeric(cell_gene_stat), gp=gpar(fill="#6baed6", border=NA, lty="blank")))
 
@@ -74,6 +76,15 @@ for(method in c("ssgsea", "cell_z")){
 	pheno_all$Staging <- factor(pheno_all$Staging, levels=c("T0", "Ta", "Ta-1", "T1", "Tis"))
 	pheno_all$Grade98 <- factor(pheno_all$Grade98, levels=c("Low", "High"))
 	pheno_all$Tumor_status <- factor(pheno_all$Tumor_status, levels=c("Primary", "Recurrent", "Progress"))
+
+	# # load model
+	# load(file=paste0("C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/10_Models_v4.2/10.2_Progression_beyond_T2_Progression_ssGSEA_random/seed_4921/1_model.Rdata"))
+	# score_matrix <- data.frame(t(plot_data), check.names=FALSE)
+	# pheno_all$pred <- predict(model, type="prob", newdata=score_matrix)[,"TRUE"]
+
+	# # re-order
+	# pheno_all <- pheno_all[order(pheno_all$pred, decreasing=TRUE),]
+	# plot_data <- plot_data[,match(pheno_all$Sample_name, names(plot_data))]
 
 	column_color <- list(
 		# pred=colorRamp2(c(0, 0.25, 0.5, 0.75, 1), c(brewer.pal(5, "Purples"))), 
@@ -104,6 +115,7 @@ for(method in c("ssgsea", "cell_z")){
 		Cancer_specific_satus_DOD_event=pheno_all$Cancer_specific_satus_DOD_event,
 		Vital_status=pheno_all$Vital_status,
 		col=column_color,
+		na_col="#f2f2f2",
 		show_legend=FALSE,
 		gap=unit(0.5,"mm"),
 		simple_anno_size=unit(3,"mm"),
@@ -123,16 +135,17 @@ for(method in c("ssgsea", "cell_z")){
 		Cancer_specific_satus_DOD_event=pheno_all$Cancer_specific_satus_DOD_event,
 		Vital_status=pheno_all$Vital_status,
 		col=column_color,
+		na_col="#f2f2f2",
 		show_legend=TRUE,
 		gap=unit(0.5,"mm"),
 		simple_anno_size=unit(3,"mm"),
 		annotation_name_gp=gpar(fontsize=8))
 
 	if(method=="ssgsea"){
-		group <- as.factor(pheno_all$Progression_beyond_T2_Progression)
-		names(group) <- pheno_all$Sample_name
+		# group <- as.factor(pheno_all$Progression_beyond_T2_Progression)
+		# names(group) <- pheno_all$Sample_name
 		heatmap <- Heatmap(as.matrix(plot_data), 
-			col=colorRamp2(c(0.6,0.4,0.2,0,-0.2), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
+			col=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba")), 
 			heatmap_height=unit(8,"cm"), 
 			top_annotation=column_ha, 
 			right_annotation=row_ha, 
@@ -140,10 +153,10 @@ for(method in c("ssgsea", "cell_z")){
 			show_column_names=FALSE, 
 			show_row_dend=FALSE, 
 			row_dend_reorder=TRUE,
-			column_split=group, 
+			column_split=factor(pheno_all$Progression_beyond_T2_Progression), 
 			column_title=NULL)
 		heatmap_legend <- Heatmap(as.matrix(plot_data), 
-			col=colorRamp2(c(0.6,0.4,0.2,0,-0.2), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
+			col=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba")), 
 			heatmap_height=unit(15,"cm"), 
 			top_annotation=column_ha_legend, 
 			right_annotation=row_ha, 
@@ -167,9 +180,9 @@ for(method in c("ssgsea", "cell_z")){
 		print(heatmap_legend)
 		dev.off()
 
-		# for pptx text annotation (Figure version 1.3)
+		# for pptx text annotation (Figure4A version 1.4)
 		legend_only <- packLegend(max_height = unit(14, "cm"), list = list(
-			Legend(title="Cell_score", col_fun=colorRamp2(c(0.6,0.4,0.2,0,-0.2), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba"))), 
+			Legend(title="Cell_score", col_fun=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba"))), 
 			Legend(title="Source_dataset", at=c("E-MTAB-1940", "E-MTAB-4321", "GSE120736", "GSE128959", "GSE13507", "GSE3167", "GSE32894", "GSE48075", "GSE83586"), legend_gp=gpar(fill=c("#8c510a", "#bf812d", "#dfc27d", "#f6e8c3", "#f5f5f5", "#c7eae5", "#80cdc1", "#35978f", "#01665e"))), 
 			Legend(title="Age", col_fun=colorRamp2(c(0,25,50,75,100), c(brewer.pal(5,"Blues")))), 
 			Legend(title="Sex", at=c("Female", "Male"), legend_gp=gpar(fill=c("#d7191c", "#6baed6"))), 
@@ -205,7 +218,7 @@ for(method in c("ssgsea", "cell_z")){
 			simple_anno_size=unit(3,"mm"),
 			annotation_name_gp=gpar(fontsize=8))
 		bar_text <- Heatmap(as.matrix(plot_data[,1:2]), 
-			col=colorRamp2(c(0.6,0.4,0.2,0,-0.2), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
+			col=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba")), 
 			heatmap_height=unit(8,"cm"), 
 			top_annotation=column_ha_text, 
 			right_annotation=row_ha, 
@@ -217,8 +230,24 @@ for(method in c("ssgsea", "cell_z")){
 
 		topptx(bar_text, paste0(result_dir, "8_Cell_scores/8.3_ssGSEA_heatmap_bar_text.pptx"))
 	}else{
-		heatmap <- Heatmap(as.matrix(plot_data), col=colorRamp2(c(100,25,0,-25,-100), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), top_annotation=column_ha, right_annotation=row_ha, show_column_dend=FALSE, show_column_names=FALSE, show_row_dend=FALSE, heatmap_height=unit(15,"cm"))
-		heatmap_legend <- Heatmap(as.matrix(plot_data), col=colorRamp2(c(100,25,0,-25,-100), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), top_annotation=column_ha_legend, right_annotation=row_ha, show_column_dend=FALSE, show_column_names=FALSE, show_row_dend=FALSE, heatmap_height=unit(15,"cm"))
+		heatmap <- Heatmap(as.matrix(plot_data), 
+			col=colorRamp2(c(30,20,10,0,-10), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
+			top_annotation=column_ha, 
+			right_annotation=row_ha, 
+			show_column_dend=FALSE, 
+			show_column_names=FALSE, 
+			show_row_dend=FALSE, 
+			heatmap_height=unit(15,"cm"),
+			column_split=factor(pheno_all$Progression_beyond_T2_Progression), 
+			column_title=NULL)
+		heatmap_legend <- Heatmap(as.matrix(plot_data), 
+			col=colorRamp2(c(30,20,10,0,-10), c("#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba")), 
+			top_annotation=column_ha_legend, 
+			right_annotation=row_ha, 
+			show_column_dend=FALSE, 
+			show_column_names=FALSE, 
+			show_row_dend=FALSE, 
+			heatmap_height=unit(15,"cm"))
 
 		pdf(paste0(result_dir, "8_Cell_scores/8.4_cell_z-score_heatmap.pdf"))
 		print(heatmap)
