@@ -1,3 +1,6 @@
+# 2022.03.20
+# modified according to reviewer1's latest comment: use original expression matrix
+
 # 2022.02.27
 # modified according to reviewer1's suggestion: update with "9_Cell-score_Survival_v3.R"
 
@@ -25,7 +28,7 @@ dir.create(paste0(result_dir, "10_Models_v4/"))
 
 ################################### Function module ################################## 
 ######### Function: Survival Analysis
-survival_pack <- function(survival_type, survival_time){
+survival_pack <- function(dataset, survival_type, survival_time){
 	
 	# retrive score matrix with available survival data
 	pheno_matrix_type <- pheno[!is.na(pheno[,c(survival_type)]),]
@@ -47,16 +50,16 @@ survival_pack <- function(survival_type, survival_time){
 
 	candidate_cells <- c("Bcells", "DC", "Endothelial", "Fibroblasts","Macrophages", "Neutrophils", "NKcells", "Tcells_CD4+", "Tcells_CD8+")
 
-	for(method in c("ssGSEA", "Z-score")){
-	# for(method in c("ssGSEA")){
+	# for(method in c("ssGSEA", "Z-score")){
+	for(method in c("ssGSEA")){
 		if(method == "ssGSEA"){
 			method_name <- method
 			survival_plot_lr(method_name, score_matrix_both, pheno_matrix_both, survival_type, survival_time)
-			survival_plot_penalize(score_matrix_type, pheno_matrix_type, survival_type, survival_time, candidate_cells, method_name)
+			survival_plot_penalize(dataset, score_matrix_type, pheno_matrix_type, survival_type, survival_time, candidate_cells, method_name)
 		}else if(method == "Z-score"){
 			method_name <- method
 			survival_plot_lr(method_name, score_matrix_both, pheno_matrix_both, survival_type, survival_time)
-			survival_plot_penalize(score_matrix_type, pheno_matrix_type, survival_type, survival_time, candidate_cells, method_name)
+			survival_plot_penalize(dataset, score_matrix_type, pheno_matrix_type, survival_type, survival_time, candidate_cells, method_name)
 		}
 	}
 }
@@ -97,7 +100,7 @@ survival_plot_lr <- function(method_name, score_matrix, pheno_matrix, survival_t
 }
 
 ########################## Function: Penalized model ##########################
-survival_plot_penalize <- function(score_matrix, pheno_matrix, survival_type, survival_time, candidate_cells, method_name){
+survival_plot_penalize <- function(dataset, score_matrix, pheno_matrix, survival_type, survival_time, candidate_cells, method_name){
 
 	# data
 	model_data <- merge(pheno_matrix, score_matrix, by="Sample_name")
@@ -110,6 +113,9 @@ survival_plot_penalize <- function(score_matrix, pheno_matrix, survival_type, su
 	# model_data <- model_data[,-grep("Sample_name", names(model_data))]
 	model_data <- model_data[!is.na(model_data$survival_type),]
 	model_data <- model_data[model_data$survival_time>0 | is.na(model_data$survival_tim),]
+
+	# use pre-defined dataset to build and validate PFS/DFS/OS models
+	model_data <- model_data[model_data$Source_dataset==dataset,]
 
 	# random seeds
 	random_seeds <- sample(1:10000, 5000, replace=FALSE)
@@ -136,29 +142,29 @@ survival_plot_penalize <- function(score_matrix, pheno_matrix, survival_type, su
 }
 
 #################################### Function: ROC plot ####################################
-ROC_plot <- function(work_dir, model, model_type, train_set, test_set_left, test_set_balance){
+ROC_plot <- function(work_dir, model, cvfit, model_type, train_set, test_set_left, test_set_balance, x_bino_train, x_bino_test_left, x_bino_test_balance){
 
 	setwd(work_dir)
 
-	train_pred_AUC<-as.numeric()
-	test_left_pred_AUC<-as.numeric()
-	test_balance_pred_AUC<-as.numeric()
+	train_pred_AUC <- as.numeric()
+	test_left_pred_AUC <- as.numeric()
+	test_balance_pred_AUC <- as.numeric()
 	
-	train_pred_ROC <- roc(train_set[,c("survival_type")], as.numeric(predict(model, newx = x_bino_train, s=cvfit_bino_ridge$lambda.min, type="response")))
+	train_pred_ROC <- roc(train_set[,c("survival_type")], as.numeric(predict(model, newx = x_bino_train, s=cvfit$lambda.min, type="response")))
 	train_pred_ROC
 	train_pred_AUC <- append(train_pred_AUC,formattable::formattable(as.numeric(pROC::auc(train_pred_ROC)),3,format = "f"))
 	train_pred_AUC
 	
 	# test lfet----
-	test_left_pred_ROC <- roc(test_set_left[,c("survival_type")], as.numeric(predict(model, newx = x_bino_test_left, s=cvfit_bino_ridge$lambda.min, type="response")))
+	test_left_pred_ROC <- roc(test_set_left[,c("survival_type")], as.numeric(predict(model, newx = x_bino_test_left, s=cvfit$lambda.min, type="response")))
 	test_left_pred_ROC
 	test_left_pred_AUC <- append(test_left_pred_AUC,formattable::formattable(as.numeric(pROC::auc(test_left_pred_ROC)),3,format = "f"))
 	test_left_pred_AUC
 	
 	# test balance ----
-	test_balance_pred_ROC <- roc(test_set_balance[,c("survival_type")], as.numeric(predict(model, newx = x_bino_test_balance, s=cvfit_bino_ridge$lambda.min, type="response")))
+	test_balance_pred_ROC <- roc(test_set_balance[,c("survival_type")], as.numeric(predict(model, newx = x_bino_test_balance, s=cvfit$lambda.min, type="response")))
 	test_balance_pred_ROC
-	test_balance_pred_AUC<- append(test_balance_pred_AUC,formattable::formattable(as.numeric(pROC::auc(test_balance_pred_ROC)),3,format = "f"))
+	test_balance_pred_AUC <- append(test_balance_pred_AUC,formattable::formattable(as.numeric(pROC::auc(test_balance_pred_ROC)),3,format = "f"))
 	test_balance_pred_AUC
 
 	#3.2.2查看AUC----
@@ -169,30 +175,30 @@ ROC_plot <- function(work_dir, model, model_type, train_set, test_set_left, test
 	roclist<-list(train_pred_ROC=train_pred_ROC,test_left_pred_ROC=test_left_pred_ROC,test_balance_pred_ROC=test_balance_pred_ROC)
 			
 	# train_ROC
-	train_ROC<-paste("Training	Set = ",formattable::formattable(as.numeric(pROC::auc(train_pred_ROC)),3,format = "f"))
+	train_ROC <- paste("Training	Set = ",formattable::formattable(as.numeric(pROC::auc(train_pred_ROC)),3,format = "f"))
 	train_ROC
 	# test_left ROC
-	test_left_ROC<-paste("Test Set = ",formattable::formattable(as.numeric(pROC::auc(test_left_pred_ROC)),3,format = "f"))
+	test_left_ROC <- paste("Test Set = ",formattable::formattable(as.numeric(pROC::auc(test_left_pred_ROC)),3,format = "f"))
 	test_left_ROC
 		
 	# test_balance ROC
-	test_balance_ROC<-paste("Test Set = ",formattable::formattable(as.numeric(pROC::auc(test_balance_pred_ROC)),3,format = "f"))
+	test_balance_ROC <- paste("Test Set = ",formattable::formattable(as.numeric(pROC::auc(test_balance_pred_ROC)),3,format = "f"))
 	test_balance_ROC
 
 	########################## 3.2.3.2 plot ROC curve
-	ggROC<-ggroc(roclist,legacy.axes = TRUE,size=1.5)+
-		theme_bw()+theme(legend.background =element_blank())+
-		scale_color_manual(labels = c(train_ROC, test_left_ROC, test_balance_ROC), values = c("#7fc97f", "#beaed4", "#fdc086"))+
-		#geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), size = 1.5,color="grey", linetype="dashed")+
-		geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), size = 1.5,color="grey", linetype="dashed")+
-		theme(panel.background=element_rect(fill="white",colour="black",size=0.5))+
-		theme(legend.position = c(0.75,0.15),legend.key.width = unit(1, "cm"),
-			legend.key.height = unit(1.5, "cm"))+
-		theme(legend.title=element_blank())+
-		theme(legend.text = element_text(size = rel(1.5),color="black"))+
-		theme(axis.text=element_text(size=rel(2),colour ="black"),
-			axis.title=element_text(face="bold", size=rel(2), color="black"))+
-		ylab("Sensitivity")+xlab("1-Specificity")
+	ggROC <- ggroc(roclist,legacy.axes = TRUE,size=1.5) +
+		theme_bw() +
+		theme(legend.background =element_blank()) +
+		scale_color_manual(labels = c(train_ROC, test_left_ROC, test_balance_ROC), values = c("#7fc97f", "#beaed4", "#fdc086")) +
+		#geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), size = 1.5,color="grey", linetype="dashed") +
+		geom_segment(aes(x = 0, xend = 1, y = 0, yend = 1), size = 1.5,color="grey", linetype="dashed") +
+		theme(panel.background=element_rect(fill="white",colour="black",size=0.5)) +
+		theme(legend.position = c(0.75,0.15),legend.key.width = unit(1, "cm"), legend.key.height = unit(1.5, "cm")) +
+		theme(legend.title=element_blank()) +
+		theme(legend.text = element_text(size = rel(1.5),color="black")) +
+		theme(axis.text=element_text(size=rel(2),colour ="black"), axis.title=element_text(face="bold", size=rel(2), color="black")) +
+		ylab("Sensitivity") +
+		xlab("1-Specificity")
 
 	# ggsave(ggROC,width=9,height=9,file = paste0("./1_model_", model_type, "_ROC.svg"))
 	ggsave(ggROC,width=9,height=9,file = paste0("./1_model_", model_type, "_ROC.pdf"))
@@ -294,9 +300,9 @@ model_pack <- function(path, survival_type, method_name, random_seed, candidate_
 
 	######################### ROC plot for the final model
 	# input value: work_dir, model, model_type, train_set, test_set_left, test_set_balance
-	ridge_AUCs <- ROC_plot(work_dir, model_bino_ridge, "ridge", train_set, test_set_left, test_set_balance)
-	lasso_AUCs <- ROC_plot(work_dir, model_bino_lasso, "lasso", train_set, test_set_left, test_set_balance)
-	elnet_AUCs <- ROC_plot(work_dir, model_bino_elnet, "elnet", train_set, test_set_left, test_set_balance)
+	ridge_AUCs <- ROC_plot(work_dir, model_bino_ridge, cvfit_bino_ridge, "ridge", train_set, test_set_left, test_set_balance, x_bino_train, x_bino_test_left, x_bino_test_balance)
+	lasso_AUCs <- ROC_plot(work_dir, model_bino_lasso, cvfit_bino_lasso, "lasso", train_set, test_set_left, test_set_balance, x_bino_train, x_bino_test_left, x_bino_test_balance)
+	elnet_AUCs <- ROC_plot(work_dir, model_bino_elnet, cvfit_bino_elnet, "elnet", train_set, test_set_left, test_set_balance, x_bino_train, x_bino_test_left, x_bino_test_balance)
 
 	########################## output models record: model performance (train & test)
 	models[current_line, "bino_elnet_train_AUC"] <<- elnet_AUCs[1]
@@ -407,10 +413,10 @@ names(models) <- c("survival_type", "method_name", "random_seed", "bino_elnet_tr
 pheno <- read.xlsx(paste0(data_dir, "combined/Clinicopathologic_v2.xlsx"), na.strings=c("","NA","Nan","#N/A"))
 datasets <- c("E-MTAB-4321", "GSE32894", "GSE13507")
 
-# function format: survival_type, survival_time)
-survival_pack("Progression_beyond_T2_Progression", "Progression_free_survival")
-survival_pack("Cancer_specific_satus_DOD_event", "Disease_specific_survival")
-survival_pack("Vital_status", "OS")
+# function format: dataset, survival_type, survival_time)
+survival_pack("E-MTAB-4321", "Progression_beyond_T2_Progression", "Progression_free_survival")
+# survival_pack("GSE32894", "Cancer_specific_satus_DOD_event", "Disease_specific_survival")
+# survival_pack("GSE13507", "Vital_status", "OS")
 
 # write to file
 write.xlsx(models, paste0(result_dir, "10_Models_v4/10.2_Modes_AUC.xlsx"), overwrite=TRUE)

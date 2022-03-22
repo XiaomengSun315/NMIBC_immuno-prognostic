@@ -1,4 +1,6 @@
-# modified according to reviewer1's suggestion: update with "6_Gene_Survival_v2.R" and "7_Housekeeping_normalization_v3.R"
+# 2022.03.20. Revision version 2
+# update with "6_Gene_Survival_v2.R".
+# Use original clean data as input expression matrix to conduct ssGSEA & z-score analysis.
 
 rm(list=ls())
 ################################## BC progression ##################################
@@ -6,7 +8,6 @@ library(openxlsx)
 library(ComplexHeatmap)
 library(GSVA)
 library(circlize)
-library(RUVSeq)
 
 # set working directory
 data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
@@ -17,16 +18,14 @@ dir.create(paste0(result_dir, "8_Cell_scores/"))
 
 Cell_scores_heatmap <- function(dataset_name, top_genes, top_genes_convert){
 
-	# expression data (without log)
-	# load re-normalized matrixs: set (non-norm), set1 (seven housekeeping genes norm), set2 (empirical genes norm)
-	sample_names <- names(read.csv(paste0(result_dir, "1_data_clean/", dataset_name, "_clean.txt"), sep="\t", row.names=1))
-	exp_data <- normCounts(set2)[,colnames(normCounts(set2)) %in% sample_names]
+	# expression data (with log2)
+	exp_data <- read.csv(paste0(result_dir, "1_data_clean/", dataset_name, "_clean.txt"), sep="\t", row.names=1)
 
 	# top genes expression data
-	exp_data_hit_nolog <- data.frame(exp_data[match(top_genes$gene_name, rownames(exp_data)),])
-	exp_data_hit_log <- log2(exp_data_hit_nolog + 1)
+	exp_data_hit_log <- data.frame(exp_data[match(top_genes$gene_name, rownames(exp_data)),])
+	exp_data_hit_nolog <- (2 ^ exp_data_hit_log)- 1
 
-	# 1) ssGSEA gene expression Heatmap (with/without log2)
+	# 1) ssGSEA gene expression Heatmap (with log2)
 	exp_DEG <- as.matrix(exp_data_hit_log)
 	ht <- Heatmap(exp_DEG, na_col="grey", cluster_rows = FALSE, cluster_columns = TRUE, show_row_dend = FALSE, show_row_names = TRUE, show_column_names = FALSE, show_heatmap_legend = TRUE, row_names_gp = gpar(fontsize = 8))
 
@@ -71,11 +70,10 @@ Cell_scores_heatmap <- function(dataset_name, top_genes, top_genes_convert){
 
 	# 3) ssGSEA Heatmap (with log2)
 	library(GSVA)
-	cell_gene_list <- lapply(as.list(top_genes_convert), function(x)x[!is.na(x)])
-	ssgsea_score <- gsva(as.matrix(exp_data_hit_log), cell_gene_list, method="ssgsea")
+	ssgsea_score <- gsva(as.matrix(exp_data_hit_log), as.list(top_genes_convert), method="ssgsea")
 
 	exp_DEG <- as.matrix(ssgsea_score)
-	ht <- Heatmap(exp_DEG, na_col="grey", cluster_rows = FALSE, cluster_columns = TRUE, show_row_dend = FALSE, show_row_names = TRUE, show_column_names = FALSE, show_heatmap_legend = TRUE, row_names_gp = gpar(fontsize = 8)) # col=colorRamp2(c(1,0,-1), c("red", "white", "blue"))
+	ht <- Heatmap(exp_DEG, col=colorRamp2(c(1,0,-1), c("red", "white", "blue")), na_col="grey", cluster_rows = FALSE, cluster_columns = TRUE, show_row_dend = FALSE, show_row_names = TRUE, show_column_names = FALSE, show_heatmap_legend = TRUE, row_names_gp = gpar(fontsize = 8))
 
 	write.xlsx(data.frame(ssgsea_score), paste0(result_dir, "8_Cell_scores/8.3_ssGSEA_heatmap/", dataset_name, "_ssGSEA_score.xlsx"), rowNames=TRUE, overwrite=TRUE)
 
@@ -98,7 +96,7 @@ Cell_scores_heatmap <- function(dataset_name, top_genes, top_genes_convert){
 	}
 
 	exp_DEG <- as.matrix(cell_z)
-	ht <- Heatmap(exp_DEG, na_col="grey", cluster_rows = FALSE, cluster_columns = TRUE, show_row_dend = FALSE, show_row_names = TRUE, show_column_names = FALSE, show_heatmap_legend = TRUE, row_names_gp = gpar(fontsize = 8)) # col=colorRamp2(c(100,0,-100), c("red", "white", "blue"))
+	ht <- Heatmap(exp_DEG, col=colorRamp2(c(100,0,-100), c("red", "white", "blue")), na_col="grey", cluster_rows = FALSE, cluster_columns = TRUE, show_row_dend = FALSE, show_row_names = TRUE, show_column_names = FALSE, show_heatmap_legend = TRUE, row_names_gp = gpar(fontsize = 8))
 
 	write.xlsx(cell_z, paste0(result_dir, "8_Cell_scores/8.4_cell_z-score_heatmap/", dataset_name, "_cell_z-score.xlsx"), rowNames=TRUE, overwrite=TRUE)
 
@@ -140,9 +138,6 @@ dir.create(paste0(result_dir, "8_Cell_scores/8.1_gene_exp_heatmap/"))
 dir.create(paste0(result_dir, "8_Cell_scores/8.2_gene_z-score_heatmap/"))
 dir.create(paste0(result_dir, "8_Cell_scores/8.3_ssGSEA_heatmap/"))
 dir.create(paste0(result_dir, "8_Cell_scores/8.4_cell_z-score_heatmap/"))
-
-# load normalized data: set (non-norm), set1 (seven housekeeping genes norm), set2 (empirical genes norm)
-load(paste0(result_dir, "7_Housekeeping_normalization/7.99_RUVg_norm_process.Rdata"))
 
 for(dataset in datasets){
 	dataset_name <- gsub("_clean.txt", "", dataset)

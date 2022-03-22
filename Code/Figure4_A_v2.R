@@ -1,5 +1,5 @@
-# 2022.02.27
-# modified according to reviewer1's suggestion: update with "6_Gene_Survival_v2.R" and "8_Cell_scores_v3.R"
+# 2022.03.20
+# modified according to reviewer1's suggestion: update with "6_Gene_Survival_v2.R" and "8_Cell_scores_v4.R"
 
 rm(list=ls())
 ################################## BC progression ##################################
@@ -145,7 +145,7 @@ for(method in c("ssgsea", "cell_z")){
 		# group <- as.factor(pheno_all$Progression_beyond_T2_Progression)
 		# names(group) <- pheno_all$Sample_name
 		heatmap <- Heatmap(as.matrix(plot_data), 
-			col=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba")), 
+			col=colorRamp2(c(0.7,0.1,-0.6), c("#d7191c", "#ffffbf", "#2b83ba")), 
 			heatmap_height=unit(8,"cm"), 
 			top_annotation=column_ha, 
 			right_annotation=row_ha, 
@@ -156,7 +156,7 @@ for(method in c("ssgsea", "cell_z")){
 			column_split=factor(pheno_all$Progression_beyond_T2_Progression), 
 			column_title=NULL)
 		heatmap_legend <- Heatmap(as.matrix(plot_data), 
-			col=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba")), 
+			col=colorRamp2(c(0.7,0.1,-0.6), c("#d7191c", "#ffffbf", "#2b83ba")), 
 			heatmap_height=unit(15,"cm"), 
 			top_annotation=column_ha_legend, 
 			right_annotation=row_ha, 
@@ -182,7 +182,7 @@ for(method in c("ssgsea", "cell_z")){
 
 		# for pptx text annotation (Figure4A version 1.4)
 		legend_only <- packLegend(max_height = unit(14, "cm"), list = list(
-			Legend(title="Cell_score", col_fun=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba"))), 
+			Legend(title="Cell_score", col_fun=colorRamp2(c(0.7,0.1,-0.6), c("#d7191c", "#ffffbf", "#2b83ba"))), 
 			Legend(title="Source_dataset", at=c("E-MTAB-1940", "E-MTAB-4321", "GSE120736", "GSE128959", "GSE13507", "GSE3167", "GSE32894", "GSE48075", "GSE83586"), legend_gp=gpar(fill=c("#8c510a", "#bf812d", "#dfc27d", "#f6e8c3", "#f5f5f5", "#c7eae5", "#80cdc1", "#35978f", "#01665e"))), 
 			Legend(title="Age", col_fun=colorRamp2(c(0,25,50,75,100), c(brewer.pal(5,"Blues")))), 
 			Legend(title="Sex", at=c("Female", "Male"), legend_gp=gpar(fill=c("#d7191c", "#6baed6"))), 
@@ -218,7 +218,7 @@ for(method in c("ssgsea", "cell_z")){
 			simple_anno_size=unit(3,"mm"),
 			annotation_name_gp=gpar(fontsize=8))
 		bar_text <- Heatmap(as.matrix(plot_data[,1:2]), 
-			col=colorRamp2(c(0.5,0,-0.5), c("#d7191c", "#ffffbf", "#2b83ba")), 
+			col=colorRamp2(c(0.7,0.1,-0.6), c("#d7191c", "#ffffbf", "#2b83ba")), 
 			heatmap_height=unit(8,"cm"), 
 			top_annotation=column_ha_text, 
 			right_annotation=row_ha, 
