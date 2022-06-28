@@ -24,8 +24,9 @@ library(dplyr)
 library(tidytree)
 
 # set working directory
-data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
-result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+args <- commandArgs(T)
+data_dir <- paste0(args[1], "Data/")
+result_dir <- paste0(args[1], "Results/")
 # dir.create(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2/"), recursive=TRUE)
 dir.create(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.5_2.5/"), recursive=TRUE)
 # dir.create(paste0(result_dir, "6_Gene_Survival/6.1+_HR_0.4_2.5/"), recursive=TRUE)

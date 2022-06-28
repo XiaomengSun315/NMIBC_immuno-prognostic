@@ -22,8 +22,9 @@ library(ReactomePA)
 library(RColorBrewer)
 
 # set working directory
-data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
-result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+args <- commandArgs(T)
+data_dir <- paste0(args[1], "Data/")
+result_dir <- paste0(args[1], "Results/")
 
 
 ################################### Function module ##################################
@@ -78,7 +79,7 @@ for(method in c("ssgsea", "cell_z")){
 	pheno_all$Tumor_status <- factor(pheno_all$Tumor_status, levels=c("Primary", "Recurrent", "Progress"))
 
 	# # load model
-	# load(file=paste0("C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/10_Models_v4.2/10.2_Progression_beyond_T2_Progression_ssGSEA_random/seed_4921/1_model.Rdata"))
+	# load(file=paste0(result_dir, "10_Models_v4.2/10.2_Progression_beyond_T2_Progression_ssGSEA_random/seed_4921/1_model.Rdata"))
 	# score_matrix <- data.frame(t(plot_data), check.names=FALSE)
 	# pheno_all$pred <- predict(model, type="prob", newdata=score_matrix)[,"TRUE"]
 

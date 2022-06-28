@@ -4,7 +4,8 @@ rm(list=ls())
 library(openxlsx)
 
 # set path
-result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+args <- commandArgs(T)
+result_dir <- paste0(args[1], "Results/")
 
 
 ################################ Download public dataset ################################
@@ -137,7 +138,7 @@ data_cleaning_array <- function(exp_data, dataset_name, bioc_package, mibc_col_n
 	# # Method 3: use AnnoProbe from jmzeng1314
 	# # library(devtools)
 	# # install_github("jmzeng1314/AnnoProbe")
-	# # setwd("D:/xmsun/Resource/GitHub_package/")
+	# # setwd(paste0(args[1], "Resource/GitHub_package/"))
 	# # devtools::install_local('AnnoProbe-master.zip')
 	# library(AnnoProbe)
 	# probe2gene_GPL6102_pipe <- idmap("GPL6102", type="pipe")

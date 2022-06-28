@@ -2,7 +2,11 @@ rm(list=ls())
 ################################## BC progression ##################################
 library(readxl)
 library(openxlsx)
-result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+
+# set path
+args <- commandArgs(T)
+result_dir <- paste0(args[1], "Results/")
+
 
 ################################### Function module ################################## 
 
@@ -30,7 +34,6 @@ run_xcell <- function(dataset_name, exp_data, save_path){
 
 ####### Function: immnedeconv
 # library(devtools)
-# setwd("F:/0_xmsun/Coo/mmli/20191030_Multi-omics/Data/")
 # devtools::install_local('GfellerLab-EPIC.zip')
 # devtools::install_local('immunedeconv-master.zip')
 immunedeconv_pack <- function(dataset_name, exp_data, save_path, timer_cancer, array) {

@@ -22,9 +22,11 @@ library(doBy)
 library(InformationValue)
 
 # set working directory
-data_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Data/"
-result_dir <- "C:/0_xmsun/xmsun/Graduate/20210224_NMIBC/Results/"
+args <- commandArgs(T)
+data_dir <- paste0(args[1], "Data/")
+result_dir <- paste0(args[1], "Results/")
 dir.create(paste0(result_dir, "10_Models_v4/"))
+
 
 ################################### Function module ################################## 
 ######### Function: Survival Analysis
